@@ -643,7 +643,7 @@ if (Test-Path -LiteralPath $sourceDirectory -PathType Container) {
     Write-Step "Obtaining the exact source commit from GitHub."
     $sourceArchive = Join-Path $cacheRoot "skill-recorder-$Commit.zip"
     $sourceArchiveHash = Get-CachedDownload `
-      -Uri "https://codeload.github.com/microsoft/skill-recorder/zip/$Commit" `
+      -Uri "https://codeload.github.com/matsudakanaden/skill-recorder/zip/$Commit" `
       -CachePath $sourceArchive
     Assert-ZipArchive -Path $sourceArchive
 
