@@ -288,9 +288,9 @@ app.whenReady().then(async () => {
   });
 
   // --- ここから追加：Gem用PDFエクスポートの受け口 ---
-  ipcMain.handle('EXPORT_PDF_SESSION', async (event, sessionDir: string) => {
-    // 1. ユーザーに保存先を選ばせるダイアログを表示
-    const { canceled, filePath } = await dialog.showSaveDialog({
+  ipcMain.handle('EXPORT_PDF_SESSION', async (event, sessionId: string) => {
+    // sessionIdから保存フォルダのパスを特定する
+    const sessionDir = path.join(app.getPath("userData"), "sessions", sessionId);
       title: 'Gemini用PDFを保存',
       defaultPath: 'session_report.pdf',
       filters: [{ name: 'PDF', extensions: ['pdf'] }]
