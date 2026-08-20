@@ -1,4 +1,4 @@
-import { app, BrowserWindow, globalShortcut, ipcMain, Menu, screen } from "electron";
+import { app, BrowserWindow, globalShortcut, ipcMain, Menu, screen, dialog } from "electron";
 
 import { FULL_CAPTURE } from "../common/config";
 import { IPC, type RecorderStatus, type StartResult } from "../common/ipc";
@@ -29,6 +29,9 @@ import {
   redockLibrary,
   setRecordingControlsExpanded,
 } from "./window";
+import { exportSessionToPdf } from "./pdfExporter";
+import fs from "fs/promises";
+import path from "path";
 
 const log = createLogger("Main");
 
@@ -283,6 +286,51 @@ app.whenReady().then(async () => {
     controlsExpanded = expanded;
     setRecordingControlsExpanded(win, expanded);
   });
+
+  // --- ここから追加：Gem用PDFエクスポートの受け口 ---
+  ipcMain.handle('EXPORT_PDF_SESSION', async (event, sessionDir: string) => {
+    // 1. ユーザーに保存先を選ばせるダイアログを表示
+    const { canceled, filePath } = await dialog.showSaveDialog({
+      title: 'Gemini用PDFを保存',
+      defaultPath: 'session_report.pdf',
+      filters: [{ name: 'PDF', extensions: ['pdf'] }]
+    });
+
+    if (canceled || !filePath) {
+      return { success: false, reason: 'canceled' };
+    }
+
+    try {
+      // 2. 録画されたセッションデータを読み込む（Skill Recorderの仕様に合わせた解析）
+      // ※実際には 'frames' フォルダの画像とログを結合します
+      const timelinePath = path.join(sessionDir, 'timeline.json'); // ログファイルのパス
+      const timelineRaw = await fs.readFile(timelinePath, 'utf-8');
+      const timelineData = JSON.parse(timelineRaw);
+
+      // 3. pdfExporter用のデータ形式に変換
+      const sessionData = {
+        title: 'デスクトップ操作記録',
+        createdAt: new Date().toLocaleString('ja-JP'),
+        steps: timelineData.map((item: any, index: number) => ({
+          action: item.action || '操作ステップ',
+          timestamp: new Date(item.timestamp).toLocaleTimeString('ja-JP'),
+          description: item.description || '',
+          // 該当フレーム画像があればパスを指定
+          imagePath: item.frameId ? path.join(sessionDir, 'frames', `${item.frameId}.jpeg`) : undefined
+        }))
+      };
+
+      // 4. PDF生成を実行
+      await exportSessionToPdf(sessionData, filePath);
+      
+      return { success: true, filePath };
+    } catch (error) {
+      log.warn("PDF Export Error:", error);
+      return { success: false, error: String(error) };
+    }
+  });
+  // --- 追加ここまで ---
+  
   ipcMain.on(IPC.fitRecorderHeight, (event, height: unknown) => {
     const win = recorderWindow;
     if (
