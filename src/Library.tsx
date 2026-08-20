@@ -590,6 +590,31 @@ function AnalysisWorkspace({
     [sessionId, onChanged],
   );
 
+  // --- ここから追加：Gem用PDFエクスポート処理 ---
+  const handleExportPdf = async () => {
+    try {
+      setStatusLine("PDFを出力中...");
+      setAnalyzing(true);
+
+      // フロントエンドからはセッションIDのみを渡す
+      const response = await (window as any).ipcRenderer.invoke('EXPORT_PDF_SESSION', sessionId);
+
+      if (response.success) {
+        alert(`Gemini用のPDFを出力しました！\n保存先: ${response.filePath}`);
+      } else if (response.reason !== 'canceled') {
+        alert(`出力に失敗しました: ${response.error}`);
+        console.error(response.error);
+      }
+    } catch (error) {
+      console.error("IPC Communication Error:", error);
+      alert('エラーが発生しました。コンソールを確認するか、preload.tsの権限を確認してください。');
+    } finally {
+      setAnalyzing(false);
+      setStatusLine("");
+    }
+  };
+  // --- 追加ここまで ---
+  
   const cancel = useCallback(async () => {
     canceled.current = true;
     setStatusLine("Stopping…");
@@ -717,6 +742,20 @@ function AnalysisWorkspace({
         {summary.processed && !analysis && !analyzing && (
           <div className="ws-empty">
             <p className="ws-empty-lead">See what you did in this recording, step by step.</p>
+            {/* 変更後：PDFエクスポートボタン */}
+            <button className="record-cta" onClick={() => void handleExportPdf()}>
+              Export PDF for Gem
+            </button>
+            
+            <details className="analyze-disclosure">
+              <summary>Geminiへのデータ受け渡しについて</summary>
+              <p>
+                「Export PDF for Gem」を選択すると、画面録画のスクリーンショットと操作ログが手元のPC内にPDFとして保存されます。保存されたPDFをご自身でGeminiにアップロードして解析を行ってください。<br/>
+                ※外部APIへの自動送信は行われません。
+              </p>
+            </details>
+            
+            {/*
             <button className="record-cta" onClick={() => void run()}>
               Analyze recording
             </button>
@@ -736,6 +775,8 @@ function AnalysisWorkspace({
                 can miss things, so it is a safety net, not a guarantee.
               </p>
             </details>
+            */}
+            
             {voicePending && (
               <p className="voice-analysis-note">
                 {narrationStatus?.model === "ready"
